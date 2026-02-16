@@ -16,9 +16,11 @@ if __name__ == "__main__":
         if "Out of host capacity" in str(e) or e.code == "InternalError":
             logger.info(f"A1 용량 부족 — 다음에 재시도 ({e.message})")
             record_attempt("capacity_shortage")
+            sys.exit(2)
         elif "LimitExceeded" in str(e):
             logger.warning(f"리소스 한도 초과: {e.message}")
             record_attempt("limit_exceeded")
+            sys.exit(2)
         else:
             logger.error(f"OCI 에러: {e.message}")
             record_attempt("error")

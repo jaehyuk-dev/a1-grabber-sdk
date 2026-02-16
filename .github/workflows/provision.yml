@@ -78,10 +78,21 @@ jobs:
           } > .env
 
       - name: Run provisioner
-        run: python main.py
+        id: provision
+        run: |
+          set +e
+          python main.py
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "result=success" >> "$GITHUB_OUTPUT"
+          elif [ $EXIT_CODE -eq 2 ]; then
+            echo "result=retry" >> "$GITHUB_OUTPUT"
+          else
+            exit $EXIT_CODE
+          fi
 
       - name: Disable workflow after success
-        if: success()
+        if: steps.provision.outputs.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow disable provision.yml
