@@ -9,6 +9,9 @@ concurrency:
   group: oci-provisioner
   cancel-in-progress: false
 
+permissions:
+  actions: write
+
 jobs:
   provision:
     runs-on: ubuntu-latest
