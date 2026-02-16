@@ -15,7 +15,7 @@ permissions:
 jobs:
   provision:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -101,7 +101,9 @@ jobs:
         if: steps.provision.outputs.result == 'retry'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run provision.yml
+        run: |
+          sleep 300
+          gh workflow run provision.yml
 
       - name: Notify on failure
         if: failure()
