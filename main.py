@@ -10,8 +10,8 @@ if __name__ == "__main__":
     check_first_run()
     send_daily_report()
     try:
-        create_a1_instance()
-        record_attempt("success")
+        created = create_a1_instance()
+        record_attempt("success" if created else "skipped")
     except oci.exceptions.ServiceError as e:
         if "Out of host capacity" in str(e) or e.code == "InternalError":
             logger.info(f"A1 용량 부족 — 다음에 재시도 ({e.message})")

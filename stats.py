@@ -24,6 +24,8 @@ def _save_stats(stats):
 
 def record_attempt(result):
     """시도 결과를 stats.json에 기록"""
+    if os.environ.get("CI"):
+        return
     stats = _load_stats()
     stats["attempts"].append(
         {
@@ -38,6 +40,9 @@ def check_first_run():
     """최초 실행 시 Slack 시작 알림"""
     if os.path.exists(config.STATS_FILE):
         return
+    if os.environ.get("CI"):
+        _save_stats({"attempts": [], "last_report_date": None})
+        return
     send_slack(
         ":rocket: *A1 Grabber 가동 시작!*\n"
         f"• Region: `{config.REGION}`\n"
@@ -48,6 +53,8 @@ def check_first_run():
 
 def send_daily_report():
     """매일 KST 07시에 지난 24시간 통계 리포트 발송"""
+    if os.environ.get("CI"):
+        return
     now = datetime.now(KST)
     if now.hour != 7:
         return

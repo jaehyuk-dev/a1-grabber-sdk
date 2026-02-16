@@ -1,0 +1,94 @@
+name: OCI A1 Provisioner
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: oci-provisioner
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    if: vars.INSTANCE_PROVISIONED != 'true'
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write OCI private key
+        env:
+          OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+        run: |
+          mkdir -p "$HOME/.oci"
+          printf '%s\n' "$OCI_PRIVATE_KEY" > "$HOME/.oci/oci_api_key.pem"
+          chmod 600 "$HOME/.oci/oci_api_key.pem"
+
+      - name: Create .env file
+        env:
+          OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
+          OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_REGION: ${{ secrets.OCI_REGION }}
+          SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          A1_DISPLAY_NAME: ${{ secrets.A1_DISPLAY_NAME }}
+          A1_SHAPE: ${{ secrets.A1_SHAPE }}
+          A1_OCPUS: ${{ secrets.A1_OCPUS }}
+          A1_MEMORY_IN_GBS: ${{ secrets.A1_MEMORY_IN_GBS }}
+          A1_BOOT_VOLUME_SIZE_IN_GBS: ${{ secrets.A1_BOOT_VOLUME_SIZE_IN_GBS }}
+          A1_SUBNET_DISPLAY_NAME: ${{ secrets.A1_SUBNET_DISPLAY_NAME }}
+          A1_IMAGE_OS: ${{ secrets.A1_IMAGE_OS }}
+          A1_IMAGE_OS_VERSION: ${{ secrets.A1_IMAGE_OS_VERSION }}
+          MICRO_DISPLAY_NAME: ${{ secrets.MICRO_DISPLAY_NAME }}
+          MICRO_SHAPE: ${{ secrets.MICRO_SHAPE }}
+        run: |
+          {
+            echo "OCI_USER_OCID=${OCI_USER_OCID}"
+            echo "OCI_FINGERPRINT=${OCI_FINGERPRINT}"
+            echo "OCI_TENANCY_OCID=${OCI_TENANCY_OCID}"
+            echo "OCI_REGION=${OCI_REGION}"
+            echo "OCI_KEY_FILE=${HOME}/.oci/oci_api_key.pem"
+            echo "SSH_PUBLIC_KEY=${SSH_PUBLIC_KEY}"
+            echo "SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}"
+            echo "A1_DISPLAY_NAME=${A1_DISPLAY_NAME}"
+            echo "A1_SHAPE=${A1_SHAPE}"
+            echo "A1_OCPUS=${A1_OCPUS}"
+            echo "A1_MEMORY_IN_GBS=${A1_MEMORY_IN_GBS}"
+            echo "A1_BOOT_VOLUME_SIZE_IN_GBS=${A1_BOOT_VOLUME_SIZE_IN_GBS}"
+            echo "A1_SUBNET_DISPLAY_NAME=${A1_SUBNET_DISPLAY_NAME}"
+            echo "A1_IMAGE_OS=${A1_IMAGE_OS}"
+            echo "A1_IMAGE_OS_VERSION=${A1_IMAGE_OS_VERSION}"
+            echo "MICRO_DISPLAY_NAME=${MICRO_DISPLAY_NAME}"
+            echo "MICRO_SHAPE=${MICRO_SHAPE}"
+          } > .env
+
+      - name: Run provisioner
+        run: python main.py
+
+      - name: Disable workflow after success
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh variable set INSTANCE_PROVISIONED --body "true"
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d "{\"text\":\":x: *Provisioner 워크플로우 실패!*\nCheck: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"

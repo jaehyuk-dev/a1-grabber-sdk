@@ -53,13 +53,16 @@ def get_image_id(compute_client):
 
 
 def check_existing_instance(compute_client):
-    """이미 A1 인스턴스가 있는지 확인"""
-    instances = compute_client.list_instances(
-        compartment_id=config.COMPARTMENT_OCID,
-        display_name=config.DISPLAY_NAME,
-        lifecycle_state="RUNNING",
-    ).data
-    return len(instances) > 0
+    """이미 A1 인스턴스가 있는지 확인 (RUNNING/PROVISIONING/STARTING)"""
+    for state in ("RUNNING", "PROVISIONING", "STARTING"):
+        instances = compute_client.list_instances(
+            compartment_id=config.COMPARTMENT_OCID,
+            display_name=config.DISPLAY_NAME,
+            lifecycle_state=state,
+        ).data
+        if instances:
+            return True
+    return False
 
 
 def create_a1_instance():
@@ -74,7 +77,7 @@ def create_a1_instance():
     # 이미 있으면 스킵
     if check_existing_instance(compute_client):
         logger.info("이미 A1 인스턴스가 실행 중 — 스킵")
-        return
+        return False
 
     # 필요한 정보 수집
     ad_name = get_availability_domain(identity_client)
@@ -112,3 +115,4 @@ def create_a1_instance():
     send_slack(
         f":tada: *A1 인스턴스 확보 성공!*\n• ID: `{instance.id}`\n• Region: `{config.REGION}`"
     )
+    return True
