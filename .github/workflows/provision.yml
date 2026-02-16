@@ -97,6 +97,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow disable provision.yml
 
+      - name: Schedule retry
+        if: steps.provision.outputs.result == 'retry'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run provision.yml
+
       - name: Notify on failure
         if: failure()
         env:
